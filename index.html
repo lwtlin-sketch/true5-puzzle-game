@@ -1,0 +1,308 @@
+import React, { useState, useEffect } from 'react';
+import { Play, RotateCcw, ImagePlus, Trophy, Clock, CheckCircle2, Grid3X3 } from 'lucide-react';
+
+// ⚠️ 預覽環境請注意：
+// 為了在線上預覽順利，這裡暫時使用一個線上圖片網址作為預設備用圖。
+// 💡 當您下載程式碼並要在自己的電腦或 GitHub 執行時，
+// 請將 DEFAULT_IMAGE 取代為您的本地圖片檔名，例如：
+// const DEFAULT_IMAGE = './41944854-7577-44e3-a845-ebe3b3c6fa46.jpg';
+// 並確保該圖片放置在 public 資料夾中。
+const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1598616781254-8e3b79ce4117?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
+
+export default function PuzzleGame() {
+  const [gridSize, setGridSize] = useState(3); // 預設 3x3
+  const [image, setImage] = useState(DEFAULT_IMAGE);
+  const [board, setBoard] = useState([]); 
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
+  const [time, setTime] = useState(0);
+  const [selectedSlot, setSelectedSlot] = useState(null);
+
+  const numPieces = gridSize * gridSize;
+
+  // 初始化正確排序的拼圖
+  useEffect(() => {
+    setBoard(Array.from({ length: numPieces }, (_, i) => i));
+  }, [numPieces]);
+
+  // 計時器邏輯
+  useEffect(() => {
+    let interval = null;
+    if (isPlaying && !isFinished) {
+      interval = setInterval(() => {
+        setTime((t) => t + 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, isFinished]);
+
+  // 格式化時間 (分:秒)
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  // 處理圖片上傳
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setImage(url);
+      resetGame();
+    }
+  };
+
+  // 洗牌邏輯
+  const shuffleBoard = () => {
+    let newBoard = Array.from({ length: numPieces }, (_, i) => i);
+    for (let i = newBoard.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newBoard[i], newBoard[j]] = [newBoard[j], newBoard[i]];
+    }
+    setBoard(newBoard);
+  };
+
+  // 開始遊戲
+  const startGame = () => {
+    shuffleBoard();
+    setTime(0);
+    setIsPlaying(true);
+    setIsFinished(false);
+    setSelectedSlot(null);
+  };
+
+  // 重置遊戲
+  const resetGame = () => {
+    setIsPlaying(false);
+    setIsFinished(false);
+    setTime(0);
+    setSelectedSlot(null);
+    setBoard(Array.from({ length: numPieces }, (_, i) => i)); 
+  };
+
+  // 變更難度
+  const handleGridSizeChange = (newSize) => {
+    setGridSize(newSize);
+    setIsPlaying(false);
+    setIsFinished(false);
+    setTime(0);
+    setSelectedSlot(null);
+    setBoard(Array.from({ length: newSize * newSize }, (_, i) => i));
+  };
+
+  // 檢查是否獲勝
+  const checkWin = (currentBoard) => {
+    const isWin = currentBoard.every((pieceId, index) => pieceId === index);
+    if (isWin) {
+      setIsPlaying(false);
+      setIsFinished(true);
+      setSelectedSlot(null);
+    }
+  };
+
+  // 處理拼圖點擊 (交換邏輯)
+  const handlePieceClick = (index) => {
+    if (!isPlaying || isFinished) return;
+
+    if (selectedSlot === null) {
+      setSelectedSlot(index);
+    } else {
+      if (selectedSlot === index) {
+        setSelectedSlot(null);
+      } else {
+        const newBoard = [...board];
+        const temp = newBoard[selectedSlot];
+        newBoard[selectedSlot] = newBoard[index];
+        newBoard[index] = temp;
+        
+        setBoard(newBoard);
+        setSelectedSlot(null);
+        checkWin(newBoard);
+      }
+    }
+  };
+
+  // 計算每個小拼圖的背景定位
+  const getPieceStyle = (pieceId) => {
+    if (pieceId === null || pieceId === undefined) return {};
+    
+    const row = Math.floor(pieceId / gridSize);
+    const col = pieceId % gridSize;
+    
+    return {
+      backgroundImage: `url(${image})`,
+      backgroundSize: `${gridSize * 100}% ${gridSize * 100}%`,
+      backgroundPosition: `${col * (100 / (gridSize - 1))}% ${row * (100 / (gridSize - 1))}%`,
+    };
+  };
+
+  return (
+    <div className="min-h-screen bg-orange-50 font-sans text-gray-800 p-4 flex flex-col items-center">
+      
+      {/* 頂部標題 */}
+      <div className="text-center mb-6 mt-4">
+        <h1 className="text-4xl font-extrabold text-orange-600 tracking-wider flex items-center justify-center gap-3 drop-shadow-sm">
+          🧩 說話真・趣味拼圖
+        </h1>
+        <p className="text-orange-500 mt-2 font-medium">點擊兩塊拼圖來交換位置，拼出完整的圖案吧！</p>
+      </div>
+
+      {/* 控制面板 */}
+      <div className="bg-white p-4 rounded-2xl shadow-md w-full max-w-4xl flex flex-wrap gap-4 items-center justify-between mb-8">
+        
+        {/* 左側：計時與狀態 */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 bg-orange-100 text-orange-700 px-4 py-2 rounded-full font-bold text-lg">
+            <Clock className="w-5 h-5" />
+            {formatTime(time)}
+          </div>
+          {isFinished && (
+            <span className="text-green-500 font-bold flex items-center gap-1 animate-bounce">
+              <CheckCircle2 className="w-5 h-5" /> 過關了！
+            </span>
+          )}
+        </div>
+
+        {/* 中間：難度選擇 */}
+        <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
+          <Grid3X3 className="w-5 h-5 text-gray-400 ml-2" />
+          <span className="text-sm font-bold text-gray-500 mr-1">難度:</span>
+          {[3, 4, 5].map((size) => (
+            <button
+              key={size}
+              onClick={() => handleGridSizeChange(size)}
+              disabled={isPlaying && !isFinished}
+              className={`px-3 py-1.5 rounded-lg font-bold text-sm transition-all ${
+                gridSize === size 
+                  ? 'bg-orange-500 text-white shadow-md transform scale-105' 
+                  : 'text-gray-500 hover:bg-gray-200'
+              } ${isPlaying && !isFinished ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {size}x{size}
+            </button>
+          ))}
+        </div>
+
+        {/* 右側：按鈕群 */}
+        <div className="flex items-center gap-3">
+          <label className="cursor-pointer bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-full font-bold flex items-center gap-2 transition-colors">
+            <ImagePlus className="w-5 h-5" />
+            上傳圖片
+            <input 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleImageUpload} 
+            />
+          </label>
+
+          {!isPlaying && !isFinished ? (
+            <button 
+              onClick={startGame}
+              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-full font-bold flex items-center gap-2 transition-colors shadow-sm"
+            >
+              <Play className="w-5 h-5 fill-current" />
+              開始遊戲
+            </button>
+          ) : (
+            <button 
+              onClick={resetGame}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-full font-bold flex items-center gap-2 transition-colors"
+            >
+              <RotateCcw className="w-5 h-5" />
+              重新開始
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 遊戲主要區域 */}
+      <div className="flex flex-col md:flex-row gap-8 items-start justify-center w-full max-w-5xl">
+        
+        {/* 拼圖區 */}
+        <div className="relative bg-white p-3 rounded-2xl shadow-xl border-4 border-orange-200 mx-auto w-full max-w-lg aspect-square">
+          {!isPlaying && !isFinished && (
+            <div className="absolute inset-0 z-20 bg-black/40 rounded-xl flex items-center justify-center backdrop-blur-[2px]">
+              <button 
+                onClick={startGame}
+                className="bg-white text-orange-600 text-2xl font-bold py-4 px-8 rounded-full shadow-2xl hover:scale-105 transition-transform"
+              >
+                點擊開始
+              </button>
+            </div>
+          )}
+
+          {/* 拼圖網格 */}
+          <div 
+            className="w-full h-full grid gap-1"
+            style={{ 
+              gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${gridSize}, minmax(0, 1fr))`
+            }}
+          >
+            {board.map((pieceId, index) => (
+              <div
+                key={index}
+                onClick={() => handlePieceClick(index)}
+                className={`
+                  relative w-full h-full rounded-md shadow-sm transition-all duration-200 cursor-pointer bg-contain bg-no-repeat bg-center
+                  ${isPlaying ? 'hover:brightness-110' : ''}
+                  ${selectedSlot === index ? 'ring-4 ring-orange-500 scale-[0.92] z-10 shadow-lg' : ''}
+                  ${isFinished ? 'gap-0 rounded-none' : ''}
+                `}
+                style={getPieceStyle(pieceId)}
+              >
+              </div>
+            ))}
+          </div>
+
+          {/* 獲勝動畫覆蓋層 (加入謊話蟲故事鼓勵語) */}
+          {isFinished && (
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-white/95 rounded-xl backdrop-blur-sm animate-in fade-in zoom-in duration-500 p-6 text-center">
+              <Trophy className="w-20 h-20 text-yellow-400 mb-4 animate-bounce" />
+              <h2 className="text-3xl font-black text-orange-600 mb-2 drop-shadow-md">太棒了！拼圖完成！</h2>
+              <p className="text-lg font-bold text-gray-700 mb-4">
+                完成時間：<span className="text-orange-500">{formatTime(time)}</span>
+              </p>
+              
+              {/* 故事鼓勵語 */}
+              <div className="bg-orange-50 p-4 rounded-xl mb-6 border-2 border-orange-200 shadow-inner max-w-sm">
+                <p className="text-orange-800 font-bold leading-relaxed text-sm md:text-base">
+                  記得喔！做個<span className="text-orange-600">「說話真」</span>的乖小孩，誠實不虛假。
+                  <br />只要我們順從良心說實話，可怕的<span className="text-orange-600">「謊話蟲」</span>就不會跑出來搗蛋囉！
+                </p>
+              </div>
+
+              <button 
+                onClick={startGame}
+                className="bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white text-lg font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105"
+              >
+                再玩一次
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 參考原圖區 */}
+        <div className="bg-white p-4 rounded-2xl shadow-md w-full max-w-[250px] mx-auto md:mx-0 flex flex-col items-center">
+          <h3 className="text-lg font-bold text-gray-600 mb-3 w-full text-center border-b pb-2">參考原圖</h3>
+          <div className="w-full aspect-square rounded-xl overflow-hidden border-2 border-gray-100 shadow-inner bg-gray-50 flex items-center justify-center p-2">
+            <img 
+              src={image} 
+              alt="原圖參考" 
+              // 修改為 object-contain 以確保圖片完整顯示不被裁切
+              className="max-w-full max-h-full object-contain" 
+            />
+          </div>
+          <p className="text-sm text-gray-400 mt-4 text-center">
+            提示：先點擊一塊拼圖，再點擊另一塊即可交換。
+          </p>
+        </div>
+
+      </div>
+    </div>
+  );
+}
